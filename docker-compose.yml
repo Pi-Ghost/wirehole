@@ -92,7 +92,7 @@ services:
     environment:
       TZ: "America/Los_Angeles"
       WEBPASSWORD: "${PI_PASSWORD}" # Blank password - Can be whatever you want.
-      ServerIP: 10.2.0.100 # Internal IP of pihole
+      FTLCONF_REPLY_ADDR4: 10.2.0.100 # Internal IP of pihole
       PIHOLE_DNS_1: 10.2.0.200 # Unbound IP
       PIHOLE_DNS_2: 10.2.0.200 # If we don't specify two, it will auto pick google.
       DNSSEC: "false" # When using unbound, DNSSEC is already used
