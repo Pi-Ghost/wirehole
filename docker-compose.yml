@@ -1,6 +1,9 @@
 version: "3"
 
 networks:
+  default:
+    name: nginx-proxy-manager_default
+    external: true
   private_network:
     ipam:
       driver: default
@@ -19,39 +22,64 @@ services:
       private_network:
         ipv4_address: 10.2.0.200
 
-  wireguard:
+#   wireguard:
+#     depends_on: [unbound, pihole]
+#     image: linuxserver/wireguard
+#     container_name: wireguard
+#     cap_add:
+#       - NET_ADMIN
+#       - SYS_MODULE
+#     environment:
+#       - PUID: 1000
+#       - PGID: 1000
+#       - TZ: America/Los_Angeles # Change to your timezone
+#       - SERVERPORT: 51820
+#       #- SERVERURL: my.ddns.net #optional - For use with DDNS (Uncomment to use)
+#       - PEERS: 1 # How many peers to generate for you (clients)
+#       - PEERDNS: 10.2.0.100 # Set it to point to pihole
+#       - INTERNAL_SUBNET: 10.6.0.0
+#     volumes:
+#       - ./wireguard:/config
+#       - /lib/modules:/lib/modules
+#     ports:
+#       - "51820:51820/udp"
+#     dns:
+#       - 10.2.0.100 # Points to pihole
+#       - 10.2.0.200 # Points to unbound
+#     sysctls:
+#       - net.ipv4.conf.all.src_valid_mark=1
+#     restart: unless-stopped
+#     networks:
+#       private_network:
+#         ipv4_address: 10.2.0.3
+  
+  wg-easy:
     depends_on: [unbound, pihole]
-    image: linuxserver/wireguard
-    container_name: wireguard
+    image: weejewel/wg-easy
+    container_name: wg-easy
+    environment:
+      WG_HOST: "${WG_HOST}"
+      PASSWORD: "${WG_PASSWORD}"
+      WG_PORT: 51822 # Public facing port of your host machine and will be used in the generated configs
+      WG_DEFAULT_ADDRESS: 10.8.0.x
+      WG_ALLOWED_IP: 0.0.0.0/0, ::/0 # Change this to 10.2.0.0/24 to only tunnel the web panel and DNS traffic
+      WG_DEFAULT_DNS: 10.2.0.100 # Pihole
+    dns:
+      - 10.2.0.100 # Pihole
+      - 10.2.0.200 # Unbound
+    volumes:
+      - ./wg-easy:/etc/wireguard
+    ports:
+      - "51822:51820/udp" # Mapped 51820/udp of container to 51822 of host to run alongside wireguard at 51820
+      - "51823:51821/tcp" # Mapped 51821/tcp of container to 51823 so access wg-easy panel at port 51823
+    restart: unless-stopped
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=America/Los_Angeles # Change to your timezone
-      - SERVERPORT=51820
-      #- SERVERURL=my.ddns.net #optional - For use with DDNS (Uncomment to use)
-      - PEERS=1 # How many peers to generate for you (clients)
-      - PEERDNS=10.2.0.100 # Set it to point to pihole
-      - INTERNAL_SUBNET=10.6.0.0
-      
-    volumes:
-      - ./wireguard:/config
-      - /lib/modules:/lib/modules
-    ports:
-      - "51820:51820/udp"
-    dns:
-      - 10.2.0.100 # Points to pihole
-      - 10.2.0.200 # Points to unbound
     sysctls:
+      - net.ipv4.ip_forward=1
       - net.ipv4.conf.all.src_valid_mark=1
-
-    restart: unless-stopped
-    networks:
-      private_network:
-        ipv4_address: 10.2.0.3
-
+  
   pihole:
     depends_on: [unbound]
     container_name: pihole
@@ -63,7 +91,7 @@ services:
       - 10.2.0.200 # Points to unbound
     environment:
       TZ: "America/Los_Angeles"
-      WEBPASSWORD: "" # Blank password - Can be whatever you want.
+      WEBPASSWORD: "${PI_PASSWORD}" # Blank password - Can be whatever you want.
       ServerIP: 10.2.0.100 # Internal IP of pihole
       DNS1: 10.2.0.200 # Unbound IP
       DNS2: 10.2.0.200 # If we don't specify two, it will auto pick google.
